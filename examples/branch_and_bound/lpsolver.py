@@ -19,6 +19,8 @@ class LPInstance:
         self.create_constraints()
         self.create_objective()
 
+        print(self.solve())
+
     def create_variables(self):
         # Helper matrix
         # D[t, i, j] = 1 if test t can differentiate between disease i and j, 0 otherwise

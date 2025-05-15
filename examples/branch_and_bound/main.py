@@ -5,10 +5,8 @@ import json
 import sys
 import time
 from pathlib import Path
-
 from state import State
 
-from docplex.mp.environment import Environment
 
 
 # Branch and bound algorithm for solving integer programming problems
@@ -86,9 +84,6 @@ def data_parse(filename: str):
 # Main function
 def main(filepath: str):
     filename = Path(filepath).name
-
-    Environment().print_information()
-
     
     print(f"Solving {filename}")
     
@@ -96,6 +91,9 @@ def main(filepath: str):
     start_time = time.time()
 
     solver = BranchAndBound(filepath)
+    print(solver.lp_instance.model.export_as_lp_string())
+    solver.lp_instance.model.solve()
+
     best_cost = solver.solve()
     end_time = time.time()
 
