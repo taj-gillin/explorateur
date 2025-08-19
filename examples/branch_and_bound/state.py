@@ -15,6 +15,7 @@ class State(BaseState):
         self,
         lp_instance,
         fixed_vars=None,
+        bound_modifications=None,
         var_selection_strategy="weighted",
     ):
         super().__init__()
@@ -22,11 +23,14 @@ class State(BaseState):
             State._lp_instance = lp_instance
         
         self.fixed_vars = dict(fixed_vars) if fixed_vars else {}
+        self.bound_modifications = dict(bound_modifications) if bound_modifications else {}
         self.var_selection_strategy = var_selection_strategy
         
-        # Solve LP
+        # Solve LP relaxation
         self.objective, self.solution = State._lp_instance.solve(
-            fixed_vars=self.fixed_vars
+            fixed_vars=self.fixed_vars,
+            bound_modifications=self.bound_modifications,
+            use_relaxation=True
         )
 
         # Update best solution if needed
@@ -46,11 +50,18 @@ class State(BaseState):
         return self.objective < other.objective
 
     def is_integer_solution(self):
-        """Check if the solution is integer"""
+        """Check if the solution satisfies integer constraints for integer variables"""
         if self.solution is None:
             return False
-        return not np.any((self.solution > self._integer_tolerance) & 
-                         (self.solution < 1.0 - self._integer_tolerance))
+        
+        # Check only integer variables for integrality
+        for i, val in enumerate(self.solution):
+            if State._lp_instance.is_variable_integer(i):
+                # Check if the value is close to an integer
+                if abs(val - round(val)) > self._integer_tolerance:
+                    return False
+        
+        return True
 
     def is_terminate(self, goal_state=None) -> bool:
         # NEVER TERMINATE because we are looking for absolute optimal solution
@@ -58,15 +69,19 @@ class State(BaseState):
         return False
 
     def get_moves(self) -> list[Move]:
-        # Prune
-        if self.solution is None or self.objective >= State._best_objective - 1e-6:
+        # Prune: only prune if current bound is worse than best known solution
+        if self.solution is None or self.objective >= State._best_objective:
             return []
 
-        # Find fractional variables
-        fractional_indices = np.where(
-            (self.solution > self._integer_tolerance) & 
-            (self.solution < 1.0 - self._integer_tolerance)
-        )[0]
+        # Find fractional integer variables that need branching
+        fractional_indices = []
+        for i, val in enumerate(self.solution):
+            if State._lp_instance.is_variable_integer(i):
+                # Check if the value is fractional (not close to an integer)
+                if abs(val - round(val)) > self._integer_tolerance:
+                    fractional_indices.append(i)
+        
+        fractional_indices = np.array(fractional_indices)
         
         # Integer solution
         if len(fractional_indices) == 0:
@@ -75,11 +90,13 @@ class State(BaseState):
         # Choose variable to branch on
         branch_var = self.select_branching_variable(fractional_indices)
 
-        # Create and return moves
-        if self.solution[branch_var] > 0.5:
-            return [Move(branch_var, 1), Move(branch_var, 0)]
-        else:
-            return [Move(branch_var, 0), Move(branch_var, 1)]
+        # Create branching moves: x <= floor(val) and x >= ceil(val)
+        val = self.solution[branch_var]
+        floor_val = int(np.floor(val))
+        ceil_val = int(np.ceil(val))
+        
+        # Create two branches: x <= floor_val and x >= ceil_val
+        return [Move(branch_var, floor_val, "<="), Move(branch_var, ceil_val, ">=")]
 
     def select_branching_variable(self, fractional_indices):
         if self.var_selection_strategy == "first":
@@ -90,21 +107,29 @@ class State(BaseState):
             return fractional_indices[np.argmin(distances)]
 
         elif self.var_selection_strategy == "weighted":
-            weights = State._lp_instance.costOfTest[fractional_indices]
+            # Use objective coefficients as weights for variable selection
+            obj_coeffs = State._lp_instance.get_objective_coefficients()
+            weights = obj_coeffs[fractional_indices]
             return fractional_indices[np.argmax(weights)]
 
     def execute(self, move: Move) -> bool:
-        # Copy variables
-        new_fixed_vars = dict(self.fixed_vars)
-        new_fixed_vars[move.var_index] = move.value
+        # Handle different constraint types
+        if move.bound_type == "=":
+            # Fixed variable (equality constraint)
+            new_fixed_vars = dict(self.fixed_vars)
+            new_fixed_vars[move.var_index] = move.value
+            self.fixed_vars = new_fixed_vars
+        else:
+            # Bound modification (inequality constraint)
+            new_bound_modifications = dict(self.bound_modifications)
+            new_bound_modifications[move.var_index] = (move.bound_type, move.value)
+            self.bound_modifications = new_bound_modifications
         
-        # Update fixed variables
-        self.fixed_vars = new_fixed_vars
-        
-        # Solve LP
+        # Solve LP relaxation
         self.objective, self.solution = State._lp_instance.solve(
-            fixed_vars=self.fixed_vars, 
-            initial_solution=self.solution
+            fixed_vars=self.fixed_vars,
+            bound_modifications=self.bound_modifications,
+            use_relaxation=True
         )
         
         # Update best solution if needed
@@ -128,7 +153,10 @@ class State(BaseState):
     def __eq__(self, other):
         if not isinstance(other, State):
             return False
-        return self.fixed_vars == other.fixed_vars
+        return (self.fixed_vars == other.fixed_vars and 
+                self.bound_modifications == other.bound_modifications)
 
     def __hash__(self):
-        return hash(frozenset(self.fixed_vars.items()))
+        fixed_items = frozenset(self.fixed_vars.items())
+        bound_items = frozenset(self.bound_modifications.items())
+        return hash((fixed_items, bound_items))

@@ -1,6 +1,6 @@
 # Branch and Bound
 
-This is a implementation of the Branch and Bound algorithm using `explorateur` and `docplex` to solve a Brown University's CSCI29510 Project 4. The goal is to find the minimum cost of tests to detect all diseases, given a set of tests, which diseases they test positive for, and the cost of each test.
+This is an implementation of the Branch and Bound algorithm using `explorateur` and Google OR-Tools to solve generic Binary/Integer Programming problems. The solver can read standard MPS files and find optimal solutions using an open-source toolchain.
 
 ## Installation
 
@@ -10,20 +10,24 @@ source venv/bin/activate
 uv pip install -r requirements.txt
 ```
 
-### Install cplex
-
-First, download the cplex solver from [here](https://www.ibm.com/analytics/cplex-optimizer).
-
-Next, export the cplex solver path. These are the instructions for MacOS. The path to the cplex solver may be different for your system.
-```export CP_SOLVER_EXEC=/Applications/CPLEX_Studio2211/cpoptimizer/bin/x86-64_osx/cpoptimizer
-export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/Applications/CPLEX_Studio2211/cpoptimizer/bin/x86-64_osx:/Applications/CPLEX_Studio2211/cplex/bin/x86-64_osx
-export DOCPLEX_COS_LOCATION=/Applications/CPLEX_Studio2211
-```
+The solver uses Google OR-Tools which is automatically installed with the requirements. No additional setup is needed.
 
 ## Usage
-To run the program, use the following command:
-```python main.py <input_file>```
 
-An example input file is provided in the `data` folder.
+To solve an MPS file:
+```bash
+python main.py <mps_file>
+```
+
+Example MPS files can be found online (e.g., MIPLIB) or in the `data` folder:
+```bash
+python main.py ../data/50v-10.mps
+```
+
+The solver will:
+1. Load the MPS file using OR-Tools
+2. Solve the LP relaxation to get a lower bound
+3. Use branch and bound to find the optimal integer solution
+4. Output the results in JSON format
 
 

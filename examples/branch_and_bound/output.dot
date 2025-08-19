@@ -1,17 +1,6 @@
 digraph G {
 spline=line;
-"Obj:26.61" -> "Obj:27.21" [label="x_3=0"];
-"Obj:27.21" -> "Obj:27.71" [label="x_11=0"];
-"Obj:27.71" -> "Obj:28.19" [label="x_7=0"];
-"Obj:28.19" -> "Obj:28.67" [label="x_18=0"];
-"Obj:28.67" -> "Obj:28.75" [label="x_10=0"];
-"Obj:28.75" -> "Obj:29.80" [label="x_12=0"];
-"Obj:29.80" -> "Obj:30.00" [label="x_4=0"];
-"Obj:29.80" -> "Obj:35.50" [label="x_4=1"];
-"Obj:28.75" -> "Obj:33.70" [label="x_12=1"];
-"Obj:28.67" -> "Obj:33.00" [label="x_10=1"];
-"Obj:28.19" -> "Obj:36.08" [label="x_18=1"];
-"Obj:27.71" -> "Obj:36.61" [label="x_7=1"];
-"Obj:27.21" -> "Obj:34.33" [label="x_11=1"];
-"Obj:26.61" -> "Obj:35.80" [label="x_3=1"];
+1 [label="Fail: 1" shape=triangle style=filled fillcolor=red];
+"Obj:3.24" -> 1 [label="x_3<=0"];
+"Obj:3.24" -> "Obj:3.24" [label="x_3>=1"];
 }

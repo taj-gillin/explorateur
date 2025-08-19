@@ -1,6 +1,6 @@
 from explorateur import Explorateur, ExplorationType, SearchType
 import numpy as np
-from lpsolver import LPInstance
+from ortools_solver import ORToolsInstance
 import json
 import sys
 import time
@@ -9,13 +9,12 @@ from state import State
 
 
 
-# Branch and bound algorithm for solving integer programming problems
+# Branch and bound algorithm for solving generic binary/integer programming problems
 # Uses the linear programming relaxation of the integer programming problem
 # as a lower bound for the search
 class BranchAndBound:
-    def __init__(self, filename: str) -> None:
-        numT, numD, cst, A = data_parse(filename)
-        self.lp_instance = LPInstance(numT, numD, cst, A)
+    def __init__(self, mps_file_path: str) -> None:
+        self.lp_instance = ORToolsInstance(mps_file_path)
 
         
     def objective_function(self, state):
@@ -37,21 +36,22 @@ class BranchAndBound:
             self.lp_instance, var_selection_strategy=var_selection_strategy
         )
 
-        # Search type
-        exp_type = ExplorationType.DepthFirst()
+        # Search type - Use BestFirst for branch and bound (always explore lowest bound first)
+        exp_type = ExplorationType.BestFirst()
         
         # Run search
         print(
-            f"Starting Explorateur search with {exploration_type} strategy and {var_selection_strategy} variable selection"
+            f"Starting Explorateur search with BestFirst strategy and {var_selection_strategy} variable selection"
         )
+        print(f"Problem has {self.lp_instance.num_variables} variables and {self.lp_instance.num_constraints} constraints")
 
         found_solution = explorer.search(
             initial_state,
             exploration_type=exp_type,
             search_type=SearchType.GraphSearch(),  
             is_solution_path=False,             
-            max_depth=100000,                     
-            max_moves=1000000,                    
+            max_depth=100000,                      
+            max_moves=1000000,                   
             dot_filename="output.dot",
         )
 
@@ -59,60 +59,47 @@ class BranchAndBound:
         
         if State._found_solution:
             print(f"Best objective: {State._best_objective}")
-            return round(State._best_objective)
+            return State._best_objective
         else:
             print("No solution found.")
             return float("inf")
 
-def data_parse(filename: str):
-    try:
-        with open(filename, "r") as fl:
-            numTests = int(fl.readline().strip())  # n
-            numDiseases = int(fl.readline().strip())  # m
 
-            costOfTest = np.array([float(i) for i in fl.readline().strip().split()])
-
-            A = np.zeros((numTests, numDiseases))
-            for i in range(0, numTests):
-                A[i, :] = np.array([int(i) for i in fl.readline().strip().split()])
-            return numTests, numDiseases, costOfTest, A
-    except Exception as e:
-        print(f"Error reading instance file. File format may be incorrect.{e}")
-        exit(1)
 
 
 # Main function
-def main(filepath: str):
-    filename = Path(filepath).name
+def main(mps_file_path: str):
+    filename = Path(mps_file_path).name
+    print(f"Solving MPS file: {filename}")
     
-    print(f"Solving {filename}")
-    
-   
     start_time = time.time()
 
-    solver = BranchAndBound(filepath)
-    print(solver.lp_instance.model.export_as_lp_string())
-    solver.lp_instance.model.solve()
+    solver = BranchAndBound(mps_file_path)
+    print(solver.lp_instance.export_model_string())
+    
+    # Solve the LP relaxation first to get an initial bound
+    lp_obj, lp_sol = solver.lp_instance.solve(use_relaxation=True)
+    print(f"LP relaxation objective: {lp_obj}")
 
     best_cost = solver.solve()
     end_time = time.time()
 
     total_time = "{:.2f}".format(end_time - start_time)
-    best_cost = round(best_cost) if best_cost != float("inf") else "--"
+    best_cost = best_cost if best_cost != float("inf") else "--"
 
     sol_dict = {
         "Instance": filename,
         "Time": total_time,
         "Result": best_cost,
-        "Solution": "OPT" if best_cost != float("inf") else "--"
+        # "Solution": "OPT" if best_cost != float("inf") else "--"
     }
     print(json.dumps(sol_dict))
 
 if __name__ == "__main__":
     if len(sys.argv) != 2:
-        print("Usage: python main.py <input_file> ")
+        print("Usage: python main.py <mps_file>")
+        print("Example: python main.py ../data/50v-10.mps")
         sys.exit(1)
         
-    filepath = sys.argv[1]
-    
-    main(filepath)
+    mps_file_path = sys.argv[1]
+    main(mps_file_path)
