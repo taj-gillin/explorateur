@@ -50,8 +50,8 @@ class BranchAndBound:
             exploration_type=exp_type,
             search_type=SearchType.GraphSearch(),  
             is_solution_path=False,             
-            max_depth=100000,                      
-            max_moves=1000000,                   
+            max_depth=100,                     
+            max_moves=10000,                  
             dot_filename="output.dot",
         )
 
