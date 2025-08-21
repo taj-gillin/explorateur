@@ -1,10 +1,11 @@
-from explorateur import Explorateur, ExplorationType, SearchType
-import numpy as np
-from ortools_solver import ORToolsInstance
 import json
 import sys
 import time
+
 from pathlib import Path
+
+from explorateur import Explorateur, ExplorationType, SearchType
+from ortools_solver import ORToolsInstance
 from state import State
 
 
@@ -48,7 +49,7 @@ class BranchAndBound:
         found_solution = explorer.search(
             initial_state,
             exploration_type=exp_type,
-            search_type=SearchType.GraphSearch(),  
+            search_type=SearchType.GraphSearch(),  # This yields the same result as TreeSearch() for bnb, as the graph is a tree
             is_solution_path=False,             
             max_depth=100,                     
             max_moves=10000,                  
@@ -98,7 +99,7 @@ def main(mps_file_path: str):
 if __name__ == "__main__":
     if len(sys.argv) != 2:
         print("Usage: python main.py <mps_file>")
-        print("Example: python main.py ../data/50v-10.mps")
+        print("Example: python main.py ../data/model1.mps")
         sys.exit(1)
         
     mps_file_path = sys.argv[1]
